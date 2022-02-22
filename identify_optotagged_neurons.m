@@ -30,15 +30,14 @@ opt.peak_fr_zscore_cutoff = 5; % max fr in first pulse (when deemed laser-respon
 opt.collision_test_window = [-7 -2]; % in ms, window before first significant bin in which to look for trials with spontaneous spikes
 
 paths = struct;
-paths.gdrive = 'I:\My Drive\UchidaLab\';
-paths.data = [paths.gdrive 'DA_independence\neuropix_processed\ks3_thresh99'];
-paths.wv_corr = [paths.gdrive 'DA_independence\waveform_correlation\'];
-paths.shuf_test = [paths.gdrive 'DA_independence\laser_response_shuffle_test'];
-paths.hgrk_analysis_tools = [paths.gdrive 'code\HyungGoo'];
+paths.data = 'F:\neuropix_processed\';
+paths.wv_corr = 'D:\waveforms\waveform_correlation\';
+paths.shuf_test = 'D:\laser_response_shuffle_test\';
+paths.hgrk_analysis_tools = 'C:\code\HGRK_analysis_tools\';
 addpath(genpath(paths.hgrk_analysis_tools));
 % paths.figs = [paths.gdrive 'figs\identify_optotagged_neurons\optotagged_only'];
-paths.figs = 'C:\figs\da_independence\identify_optotagged_neurons\optotagged_only';
-if ~isfolder(paths.figs)
+paths.figs = 'C:\figs\da_independence\identify_optotagged_neurons\optotagged_only\';
+if opt.make_figs && ~isfolder(paths.figs)
     mkdir(paths.figs);
 end
 
@@ -50,6 +49,7 @@ for i = 1:numel(session)
     session{i} = session{i}(1:end-4);
 end
 
+session = session(contains(session,'MC28'));
 
 %% gather cells from all sessions
 
@@ -96,14 +96,18 @@ for sesh_idx = 1:numel(session)
     laser_ts = dat.SessionData.TrialStartTimestamp + opt.laser_offset;    
     laser_ts_all = sort(repmat(laser_ts,1,nPulse) + ...
         sort(repmat(1/laser_freq * (0:nPulse-1),1,numel(laser_ts))));
-    laser_target = [dat.exp_params.laser_target {'none'}];
+    
+    if strcmp(dat.exp_params.bpod_protocol,'OdorLaser')
+        laser_target = [dat.exp_params.laser_target {'none'}];
+    elseif strcmp(dat.exp_params.bpod_protocol,'OdorLaserWater')
+        laser_target = [dat.exp_params.laser_target {'none'} {'none'}];
+    end
     
     % reorder laser response data to be {VS, DMS, DLS, none}
-    laser_reorder = nan(nCond,1);
+    laser_reorder = (1:nCond)';
     laser_reorder(1) = find(strcmp(laser_target,'VS'));
     laser_reorder(2) = find(strcmp(laser_target,'DMS'));
     laser_reorder(3) = find(strcmp(laser_target,'DLS'));
-    laser_reorder(4) = find(strcmp(laser_target,'none'));
     
     % reorder individual laser pulses
     pulse_reorder = reshape((nPulse*repmat(laser_reorder-1,1,nPulse)+repmat(1:nPulse,nCond,1))',nPulse*nCond,1);

@@ -5,12 +5,11 @@
 opt = struct;
 
 paths = struct;
-paths.gdrive = 'I:\My Drive\UchidaLab\';
-paths.data = [paths.gdrive 'DA_independence\neuropix_processed\ks3_thresh99'];
+paths.data = 'F:\neuropix_processed';
 paths.cwaves_output = 'D:\waveforms\';
-paths.npy_matlab = [paths.gdrive 'code\npy-matlab'];
+paths.npy_matlab = 'C:\code\npy-matlab';
 addpath(genpath(paths.npy_matlab));
-paths.save = [paths.gdrive 'DA_independence\waveform_correlation\'];
+paths.save = 'D:\waveforms\waveform_correlation\';
 
 
 %% get sessions
@@ -19,6 +18,12 @@ session = {session.name}';
 for i = 1:numel(session)
     session{i} = session{i}(1:end-4);
 end
+
+% subselect sessions to process
+session = session(contains(session,'MC30') | ...
+    contains(session,'MC31') | ...
+    contains(session,'MC33') | ...
+    contains(session,'MC34'));
 
 
 %% iterate over sessions

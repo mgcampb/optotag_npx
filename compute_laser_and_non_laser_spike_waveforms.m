@@ -5,7 +5,7 @@
 
 opt = struct;
 opt.laser_offset = 2; % seconds relative to start of trial that laser pulses start
-opt.ks_ver = 'ks3_thresh99';
+opt.ks_ver = 'ks3';
 
 % cwaves options:
 opt.samples_per_spike = 82;
@@ -14,15 +14,17 @@ opt.num_spikes = 1000;
 opt.snr_radius = 8;
 
 paths = struct;
-paths.gdrive = 'I:\My Drive\UchidaLab\';
-paths.data = [paths.gdrive 'DA_independence\neuropix_processed\ks3_thresh99'];
-paths.hgrk_analysis_tools = [paths.gdrive 'code\HyungGoo'];
+% data paths:
+paths.data = 'F:\neuropix_processed\';
+paths.raw_data_root = 'F:\ecephys\catGT\';
+paths.dest_root = 'D:\waveforms\';
+% code paths:
+paths.hgrk_analysis_tools = 'C:\code\HyungGoo';
 addpath(genpath(paths.hgrk_analysis_tools));
-paths.malcolm_functions = [paths.gdrive 'code\malcolm_functions'];
+paths.malcolm_functions = 'C:\code\malcolm_functions';
 addpath(genpath(paths.malcolm_functions));
-paths.npy_matlab = [paths.gdrive 'code\npy-matlab'];
+paths.npy_matlab = 'C:\code\npy-matlab';
 addpath(genpath(paths.npy_matlab));
-
 paths.cwaves = 'C:\code\C_Waves-win\';
 
 %% Get sessions
@@ -32,6 +34,12 @@ for i = 1:numel(opt.session)
     opt.session{i} = opt.session{i}(1:end-4);
 end
 
+% subselect sessions to process
+opt.session = opt.session(contains(opt.session,'MC30') | ...
+    contains(opt.session,'MC31') | ...
+    contains(opt.session,'MC33') | ...
+    contains(opt.session,'MC34'));
+
 %% Iterate over sessions
 tic
 for sesh_idx = 1:numel(opt.session)
@@ -39,10 +47,10 @@ for sesh_idx = 1:numel(opt.session)
     fprintf('\nAnalyzing session %d/%d: %s\n',sesh_idx,numel(opt.session),session_this);
     
     %% construct paths for this session
-    paths.raw_data = ['D:\ecephys\catGT\catgt_' session_this '_g0\' session_this '_g0_imec0\'];
+    paths.raw_data = [paths.raw_data_root 'catgt_' session_this '_g0\' session_this '_g0_imec0\'];
     paths.ks_output = [paths.raw_data 'imec0_' opt.ks_ver '\'];
     paths.spike_glx_bin = [paths.raw_data session_this '_g0_tcat.imec0.ap.bin'];
-    paths.dest = ['D:\waveforms\' session_this '\'];
+    paths.dest = [paths.dest_root session_this '\'];
     if ~isfolder(paths.dest)
         mkdir(paths.dest);
     end
@@ -58,8 +66,13 @@ for sesh_idx = 1:numel(opt.session)
     laser_pulse_duration = dat.SessionData.TrialSettings(1).LaserPulseDuration;
     laser_pulse_freq = dat.SessionData.TrialSettings(1).LaserPulseFrequency;
     num_laser_pulse = dat.SessionData.TrialSettings(1).NumLaserPulse;
-
-    laser_trials = dat.SessionData.TrialTypes~=dat.SessionData.TrialSettings(1).NumOdors;
+    
+    if strcmp(dat.exp_params.bpod_protocol,'OdorLaser')
+        laser_trials = dat.SessionData.TrialTypes<=dat.SessionData.SettingsFile.NumLaser;
+    elseif strcmp(dat.exp_params.bpod_protocol,'OdorLaserWater')
+        laser_trials = dat.SessionData.TrialTypes<=dat.SessionData.SettingsFile.NumLaser & ...
+            dat.SessionData.RewardedTrials==1;
+    end
     laser_interval_base = dat.SessionData.TrialStartTimestamp(laser_trials) + opt.laser_offset;
     laser_interval_base = [laser_interval_base laser_interval_base+laser_pulse_duration];
     laser_bin_edges = [];
@@ -70,7 +83,7 @@ for sesh_idx = 1:numel(opt.session)
 
     %% find spikes within laser pulse (any laser) and spikes outside of laser pulse
     [~,~,laser_bin] = histcounts(dat.sp.st,laser_bin_edges); % make sure to use synchronized spikes (not uncorrected)
-    laser_evoked = ~isEven(laser_bin);
+    laser_evoked = mod(laser_bin,2)==1;
 
     %% generate npy files - LASER_EVOKED
 

@@ -10,13 +10,15 @@ opt.num_shuf = 1000;
 opt.sigma_thresh = 5; % number of standard deviations above shuffle to be considered a significant bin
 
 paths = struct;
-paths.gdrive = 'I:\My Drive\UchidaLab\';
-paths.data = [paths.gdrive 'DA_independence\neuropix_processed\ks3_thresh99'];
-paths.hgrk_analysis_tools = [paths.gdrive 'code\HyungGoo'];
+paths.data = 'F:\neuropix_processed';
+paths.hgrk_analysis_tools = 'C:\code\HGRK_analyis_tools';
 addpath(genpath(paths.hgrk_analysis_tools));
-paths.malcolm_functions = [paths.gdrive 'code\malcolm_functions'];
+paths.malcolm_functions = 'C:\code\malcolm_functions';
 addpath(genpath(paths.malcolm_functions));
-paths.save = [paths.gdrive 'DA_independence\laser_response_shuffle_test'];
+paths.save = 'D:\laser_response_shuffle_test';
+if ~isfolder(paths.save)
+    mkdir(paths.save);
+end
 
 
 %% get sessions
@@ -25,6 +27,12 @@ session = {session.name}';
 for i = 1:numel(session)
     session{i} = session{i}(1:end-4);
 end
+
+% subselect sessions to process
+session = session(contains(session,'MC28') | ...
+    contains(session,'MC29') | ...
+    contains(session,'MC33') | ...
+    contains(session,'MC34'));
 
 
 %% iterate over sessions
@@ -68,22 +76,25 @@ for sesh_idx = 1:numel(session)
         fprintf('\tCell %d/%d: cellID=%d\n',cIdx,numel(good_cells),good_cells(cIdx));
         spiket = 1000/opt.bin_size_ms * dat.sp.st(dat.sp.clu==good_cells(cIdx))';
         trigger = 1000/opt.bin_size_ms * laser_ts_all';
-        grp = reshape(repmat((TrialTypes-1)*10,laser_pulse_num,1)+repmat((1:10)',1,numel(TrialTypes)),numel(trigger),1);
+        grp = reshape(...
+            repmat((TrialTypes-1)*laser_pulse_num,laser_pulse_num,1) + ...
+            repmat((1:laser_pulse_num)',1,numel(TrialTypes)), ...
+            numel(trigger),1);
 
         mint = 1000/opt.bin_size_ms * 20;
         maxt = 1000/opt.bin_size_ms * max(dat.sp.st);
 
-        [~,psth] = plot_timecourse('timestamp',spiket,trigger,...
+        [~,~,psth] = plot_timecourse('timestamp',spiket,trigger,...
             trigger-opt.ms_before/opt.bin_size_ms,trigger+opt.ms_after/opt.bin_size_ms,grp,...
-            'win_len',1,'resample_bin',1,'plot_type','none','grp_lim',40);
+            'win_len',1,'resample_bin',1,'plot_type','none','grp_lim',nCond*laser_pulse_num);
 
         psth_laser(cIdx,:,:) = psth.mean;
 
         parfor shufIdx = 1:opt.num_shuf
             spiket_shuf = mod(spiket + unifrnd(mint,maxt),maxt);
-            [~,psth] = plot_timecourse('timestamp',spiket_shuf,trigger,...
+            [~,~,psth] = plot_timecourse('timestamp',spiket_shuf,trigger,...
                 trigger-opt.ms_before/opt.bin_size_ms,trigger+opt.ms_after/opt.bin_size_ms,grp,...
-                'win_len',1,'resample_bin',1,'plot_type','none','grp_lim',40);
+                'win_len',1,'resample_bin',1,'plot_type','none','grp_lim',nCond*laser_pulse_num);
             psth_laser_shuf(cIdx,:,:,shufIdx) = psth.mean;
         end
 
