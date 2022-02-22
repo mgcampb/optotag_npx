@@ -44,11 +44,15 @@ for sesh_idx = 1:numel(session)
     nTrials = dat.SessionData.nTrials;   
     TrialTypes = dat.SessionData.TrialTypes;
     laser_ts = dat.SessionData.TrialStartTimestamp + opt.laser_offset;
-    if strcmp(dat.exp_params.bpod_protocol,'OdorLaserWater') % for this protocol, only keep rewarded trials (this includes rewarded non-laser trials as a control)
+    if strcmp(dat.exp_params.bpod_protocol,'OdorLaser')
+        
+        
+    elseif strcmp(dat.exp_params.bpod_protocol,'OdorLaserWater')
         keep = dat.SessionData.RewardedTrials == 1;
-        TrialTypes = TrialTypes(keep);
-        laser_ts = laser_ts(keep);
+
     end
+    TrialTypes = TrialTypes(keep);
+    laser_ts = laser_ts(keep);
     nCond = numel(unique(TrialTypes));
 
     laser_pulse_freq = dat.SessionData.TrialSettings(1).LaserPulseFrequency;
@@ -56,6 +60,8 @@ for sesh_idx = 1:numel(session)
     laser_pulse_num = dat.SessionData.TrialSettings(1).NumLaserPulse;
 
     num_pulse_total = nTrials * laser_pulse_num;
+
+    keyboard;
 
     laser_ts_all = sort(repmat(laser_ts,1,laser_pulse_num) + ...
         sort(repmat(1/laser_pulse_freq * (0:laser_pulse_num-1),1,numel(laser_ts))));
