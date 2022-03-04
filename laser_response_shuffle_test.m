@@ -29,7 +29,7 @@ for i = 1:numel(session)
 end
 
 % subselect sessions to process
-session = session(contains(session,'MC26'));
+session = session(contains(session,'MC31'));
 
 
 %% iterate over sessions

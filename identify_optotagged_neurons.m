@@ -23,20 +23,22 @@ opt.ms_before = 100; % for laser psth
 opt.ms_after = 600;
 opt.bin_size_ms = 1;
 
-opt.peak_fr_cutoff = 15; % max fr in first pulse (when deemed laser-responsive) must be bigger than this
+% * NOTE: Take a look at this; 1 or 2 spikes can get it over this threshold
+% with fewer trials *
+opt.peak_fr_cutoff = 20; % max fr in first pulse (when deemed laser-responsive) must be bigger than this
 opt.peak_fr_zscore_cutoff = 5; % max fr in first pulse (when deemed laser-responsive) must exceed baseline (10 ms before laser pulse) by this many z-scores
 
 % collision test params
 opt.collision_test_window = [-7 -2]; % in ms, window before first significant bin in which to look for trials with spontaneous spikes
 
 paths = struct;
-paths.data = 'F:\neuropix_processed\';
-paths.wv_corr = 'D:\waveforms\waveform_correlation\';
-paths.shuf_test = 'D:\laser_response_shuffle_test\';
-paths.hgrk_analysis_tools = 'C:\code\HGRK_analysis_tools\';
+paths.data = 'I:\My Drive\UchidaLab\DA_independence\neuropix_processed\ks3_thresh99\';
+paths.wv_corr = 'I:\My Drive\UchidaLab\DA_independence\waveform_correlation\';
+paths.shuf_test = 'I:\My Drive\UchidaLab\DA_independence\laser_response_shuffle_test\';
+paths.hgrk_analysis_tools = 'I:\My Drive\UchidaLab\code\HyungGoo';
 addpath(genpath(paths.hgrk_analysis_tools));
 % paths.figs = [paths.gdrive 'figs\identify_optotagged_neurons\optotagged_only'];
-paths.figs = 'C:\figs\da_independence\identify_optotagged_neurons\optotagged_only\';
+paths.figs = 'I:\My Drive\UchidaLab\DA_independence\figs\identify_optotagged_neurons\optotagged_only\';
 if opt.make_figs && ~isfolder(paths.figs)
     mkdir(paths.figs);
 end
@@ -49,7 +51,14 @@ for i = 1:numel(session)
     session{i} = session{i}(1:end-4);
 end
 
-session = session(contains(session,'MC28'));
+% session = session(contains(session,'MC26') | ...
+%     contains(session,'MC27') | ...
+%     contains(session,'MC28') | ...
+%     contains(session,'MC29') | ...
+%     contains(session,'MC30') | ...
+%     contains(session,'MC31') | ...
+%     contains(session,'MC33') | ...
+%     contains(session,'MC34'));
 
 %% gather cells from all sessions
 
@@ -88,22 +97,25 @@ for sesh_idx = 1:numel(session)
     dat = load(fullfile(paths.data,opt.session));
     good_cells = dat.sp.cids(dat.sp.cgs==2);
     nCells = numel(good_cells);
-    TrialTypes = dat.SessionData.TrialTypes;
-    nCond = numel(unique(TrialTypes));
     nPulse = dat.SessionData.TrialSettings(1).NumLaserPulse;
     pulseDurMs = dat.SessionData.TrialSettings(1).LaserPulseDuration * 1000;
     laser_freq = dat.SessionData.TrialSettings(1).LaserPulseFrequency;
     laser_ts = dat.SessionData.TrialStartTimestamp + opt.laser_offset;    
+
+    TrialTypes = dat.SessionData.TrialTypes;
+    if isfield(dat.exp_params,'bpod_protocol')
+        if strcmp(dat.exp_params.bpod_protocol,'OdorLaserWater')
+            keep = dat.SessionData.RewardedTrials == 1;
+            TrialTypes = TrialTypes(keep);
+            laser_ts = laser_ts(keep);
+        end
+    end
+    nCond = numel(unique(TrialTypes));
     laser_ts_all = sort(repmat(laser_ts,1,nPulse) + ...
         sort(repmat(1/laser_freq * (0:nPulse-1),1,numel(laser_ts))));
     
-    if strcmp(dat.exp_params.bpod_protocol,'OdorLaser')
-        laser_target = [dat.exp_params.laser_target {'none'}];
-    elseif strcmp(dat.exp_params.bpod_protocol,'OdorLaserWater')
-        laser_target = [dat.exp_params.laser_target {'none'} {'none'}];
-    end
-    
     % reorder laser response data to be {VS, DMS, DLS, none}
+    laser_target = [dat.exp_params.laser_target {'none'}];
     laser_reorder = (1:nCond)';
     laser_reorder(1) = find(strcmp(laser_target,'VS'));
     laser_reorder(2) = find(strcmp(laser_target,'DMS'));
@@ -183,7 +195,6 @@ for sesh_idx = 1:numel(session)
         max_fr > baseline_fr + baseline_std * opt.peak_fr_zscore_cutoff;
     pass_fr_cutoff = pass_fr_cutoff(:,laser_reorder);
     cell_table.PassFRCutoff(idx,:) = pass_fr_cutoff;
-
     
     % collision test
     collision_test = nan(nCells,1);
